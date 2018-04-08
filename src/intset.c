@@ -51,6 +51,7 @@ static uint8_t _intsetValueEncoding(int64_t v) {
         return INTSET_ENC_INT16;
 }
 
+// TMD
 /* Return the value at pos, given an encoding. */
 static int64_t _intsetGetEncoded(intset *is, int pos, uint8_t enc) {
     int64_t v64;
