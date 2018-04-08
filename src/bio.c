@@ -128,6 +128,7 @@ void bioInit(void) {
     }
 }
 
+// XXX
 void bioCreateBackgroundJob(int type, void *arg1, void *arg2, void *arg3) {
     struct bio_job *job = zmalloc(sizeof(*job));
 

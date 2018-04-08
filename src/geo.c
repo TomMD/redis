@@ -71,6 +71,7 @@ geoPoint *geoArrayAppend(geoArray *ga) {
     return gp;
 }
 
+// XXX
 /* Destroy a geoArray created with geoArrayCreate(). */
 void geoArrayFree(geoArray *ga) {
     size_t i;
