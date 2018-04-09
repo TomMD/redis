@@ -308,7 +308,6 @@ NULL
         };
         addReplyHelp(c, help);
     } else if (!strcasecmp(c->argv[1]->ptr,"segfault")) {
-        *((char*)-1) = 'x';
     } else if (!strcasecmp(c->argv[1]->ptr,"panic")) {
         serverPanic("DEBUG PANIC called at Unix time %ld", time(NULL));
     } else if (!strcasecmp(c->argv[1]->ptr,"restart") ||
@@ -571,7 +570,6 @@ void _serverAssert(const char *estr, const char *file, int line) {
     server.assert_line = line;
     serverLog(LL_WARNING,"(forcing SIGSEGV to print the bug report.)");
 #endif
-    *((char*)-1) = 'x';
 }
 
 void _serverAssertPrintClientInfo(const client *c) {
@@ -649,7 +647,6 @@ void _serverPanic(const char *file, int line, const char *msg, ...) {
     serverLog(LL_WARNING,"(forcing SIGSEGV in order to print the stack trace)");
 #endif
     serverLog(LL_WARNING,"------------------------------------------------");
-    *((char*)-1) = 'x';
 }
 
 void bugReportStart(void) {
