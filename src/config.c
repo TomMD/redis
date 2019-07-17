@@ -130,6 +130,7 @@ configYesNo configs_yesno[] = {
     {"lazyfree-lazy-eviction",NULL,&server.lazyfree_lazy_eviction,1,CONFIG_DEFAULT_LAZYFREE_LAZY_EVICTION},
     {"lazyfree-lazy-expire",NULL,&server.lazyfree_lazy_expire,1,CONFIG_DEFAULT_LAZYFREE_LAZY_EXPIRE},
     {"lazyfree-lazy-server-del",NULL,&server.lazyfree_lazy_server_del,1,CONFIG_DEFAULT_LAZYFREE_LAZY_SERVER_DEL},
+    {"lazyfree-lazy-user-del",NULL,&server.lazyfree_lazy_user_del,1,CONFIG_DEFAULT_LAZYFREE_LAZY_USER_DEL},
     {"repl-disable-tcp-nodelay",NULL,&server.repl_disable_tcp_nodelay,1,CONFIG_DEFAULT_REPL_DISABLE_TCP_NODELAY},
     {"repl-diskless-sync",NULL,&server.repl_diskless_sync,1,CONFIG_DEFAULT_REPL_DISKLESS_SYNC},
     {"gopher-enabled",NULL,&server.gopher_enabled,1,CONFIG_DEFAULT_GOPHER_ENABLED},
