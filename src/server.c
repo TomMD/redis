@@ -2315,6 +2315,7 @@ void initServerConfig(void) {
     server.lazyfree_lazy_eviction = CONFIG_DEFAULT_LAZYFREE_LAZY_EVICTION;
     server.lazyfree_lazy_expire = CONFIG_DEFAULT_LAZYFREE_LAZY_EXPIRE;
     server.lazyfree_lazy_server_del = CONFIG_DEFAULT_LAZYFREE_LAZY_SERVER_DEL;
+    server.lazyfree_lazy_user_del = CONFIG_DEFAULT_LAZYFREE_LAZY_USER_DEL;
     server.always_show_logo = CONFIG_DEFAULT_ALWAYS_SHOW_LOGO;
     server.lua_time_limit = LUA_SCRIPT_TIME_LIMIT;
     server.io_threads_num = CONFIG_DEFAULT_IO_THREADS_NUM;
