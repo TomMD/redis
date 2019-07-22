@@ -1259,9 +1259,9 @@ int sdsTest(void) {
             memcmp(y,"\"\\a\\n\\x00foo\\r\"",15) == 0)
 
         {
-            unsigned int oldfree;
+            size_t oldfree;
             char *p;
-            int step = 10, j, i;
+            size_t step = 10, j, i;
 
             sdsfree(x);
             sdsfree(y);
@@ -1271,7 +1271,7 @@ int sdsTest(void) {
             /* Run the test a few times in order to hit the first two
              * SDS header types. */
             for (i = 0; i < 10; i++) {
-                int oldlen = sdslen(x);
+                size_t oldlen = sdslen(x);
                 x = sdsMakeRoomFor(x,step);
                 int type = x[-1]&SDS_TYPE_MASK;
 
@@ -1286,6 +1286,8 @@ int sdsTest(void) {
                 }
                 sdsIncrLen(x,step);
             }
+            (void)oldfree;
+
             test_cond("sdsMakeRoomFor() content",
                 memcmp("0ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJ",x,101) == 0);
             test_cond("sdsMakeRoomFor() final length",sdslen(x)==101);
