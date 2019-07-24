@@ -99,22 +99,24 @@ proc wait_for_ofs_sync {r1 r2} {
     }
 }
 
-proc wait_for_log_message {srv_idx pattern last_lines maxtries delay} {
+proc wait_for_log_messages {srv_idx patterns last_lines maxtries delay} {
     set retry $maxtries
     set stdout [srv $srv_idx stdout]
     while {$retry} {
         set result [exec tail -$last_lines < $stdout]
         set result [split $result "\n"]
         foreach line $result {
-            if {[string match $pattern $line]} {
-                return $line
+            foreach pattern $patterns {
+                if {[string match $pattern $line]} {
+                    return $line
+                }
             }
         }
         incr retry -1
         after $delay
     }
     if {$retry == 0} {
-        fail "log message of '$pattern' not found"
+        fail "log message of '$patterns' not found"
     }
 }
 
