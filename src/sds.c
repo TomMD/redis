@@ -523,6 +523,7 @@ sds sdscatvprintf(sds s, const char *fmt, va_list ap) {
     va_list cpy;
     char staticbuf[1024], *buf = staticbuf, *t;
     size_t buflen = strlen(fmt)*2;
+    int bufstrlen;
 
     /* We try to start using a static buffer for speed.
      * If not possible we revert to heap allocation. */
@@ -533,16 +534,19 @@ sds sdscatvprintf(sds s, const char *fmt, va_list ap) {
         buflen = sizeof(staticbuf);
     }
 
-    /* Try with buffers two times bigger every time we fail to
+    /* Alloc enough space for buffer and \0 after failing to
      * fit the string in the current buffer size. */
     while(1) {
-        buf[buflen-2] = '\0';
         va_copy(cpy,ap);
-        vsnprintf(buf, buflen, fmt, cpy);
+        bufstrlen = vsnprintf(buf, buflen, fmt, cpy);
         va_end(cpy);
-        if (buf[buflen-2] != '\0') {
+        if (bufstrlen < 0) {
             if (buf != staticbuf) s_free(buf);
-            buflen *= 2;
+            return NULL;
+        }
+        if (((size_t)bufstrlen) >= buflen) {
+            if (buf != staticbuf) s_free(buf);
+            buflen = ((size_t)bufstrlen) + 1;
             buf = s_malloc(buflen);
             if (buf == NULL) return NULL;
             continue;
@@ -551,7 +555,7 @@ sds sdscatvprintf(sds s, const char *fmt, va_list ap) {
     }
 
     /* Finally concat the obtained string to the SDS string and return it. */
-    t = sdscat(s, buf);
+    t = sdscatlen(s, buf, bufstrlen);
     if (buf != staticbuf) s_free(buf);
     return t;
 }
@@ -1156,6 +1160,11 @@ int sdsTest(void) {
             sdslen(x) == 3 && memcmp(x,"123\0",4) == 0)
 
         sdsfree(x);
+        x = sdscatprintf(sdsempty(),"a%cb",0);
+        test_cond("sdscatprintf() seems working with \\0 inside of result",
+            sdslen(x) == 3 && memcmp(x,"a\0""b\0",4) == 0)
+
+        sdsfree(x);
         x = sdsnew("--");
         x = sdscatfmt(x, "Hello %s World %I,%I--", "Hi!", LLONG_MIN,LLONG_MAX);
         test_cond("sdscatfmt() seems working in the base case",
@@ -1250,9 +1259,9 @@ int sdsTest(void) {
             memcmp(y,"\"\\a\\n\\x00foo\\r\"",15) == 0)
 
         {
-            unsigned int oldfree;
+            size_t oldfree;
             char *p;
-            int step = 10, j, i;
+            size_t step = 10, j, i;
 
             sdsfree(x);
             sdsfree(y);
@@ -1262,7 +1271,7 @@ int sdsTest(void) {
             /* Run the test a few times in order to hit the first two
              * SDS header types. */
             for (i = 0; i < 10; i++) {
-                int oldlen = sdslen(x);
+                size_t oldlen = sdslen(x);
                 x = sdsMakeRoomFor(x,step);
                 int type = x[-1]&SDS_TYPE_MASK;
 
@@ -1277,6 +1286,8 @@ int sdsTest(void) {
                 }
                 sdsIncrLen(x,step);
             }
+            (void)oldfree;
+
             test_cond("sdsMakeRoomFor() content",
                 memcmp("0ABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJABCDEFGHIJ",x,101) == 0);
             test_cond("sdsMakeRoomFor() final length",sdslen(x)==101);
