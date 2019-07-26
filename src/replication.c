@@ -747,6 +747,8 @@ void syncCommand(client *c) {
              * few seconds to wait for more slaves to arrive. */
             if (server.repl_diskless_sync_delay)
                 serverLog(LL_NOTICE,"Delay next BGSAVE for diskless SYNC");
+            else
+                startBgsaveForReplication(c->slave_capa);
         } else {
             /* Target is disk (or the slave is not capable of supporting
              * diskless replication) and we don't have a BGSAVE in progress,
@@ -823,7 +825,12 @@ void replconfCommand(client *c) {
             c->repl_ack_time = server.unixtime;
             /* If this was a diskless replication, we need to really put
              * the slave online when the first ACK is received (which
-             * confirms slave is online and ready to get more data). */
+             * confirms slave is online and ready to get more data).
+             * There's a chance the ACK got to us before we detected that the
+             * bgsave is done (since that depends on cron ticks), so run a
+             * quick check first (instead of waiting for the next ACK. */
+            if (server.rdb_child_pid != -1 && c->replstate == SLAVE_STATE_WAIT_BGSAVE_END)
+                checkChildrenDone();
             if (c->repl_put_online_on_ack && c->replstate == SLAVE_STATE_ONLINE)
                 putSlaveOnline(c);
             /* Note: this command does not reply anything! */
@@ -1478,6 +1485,9 @@ void readSyncBulkPayload(aeEventLoop *el, int fd, void *privdata, int mask) {
     if (server.repl_backlog == NULL) createReplicationBacklog();
     serverLog(LL_NOTICE, "MASTER <-> REPLICA sync: Finished with success");
 
+    /* Send the initial ACK immediately to put this replica in online state. */
+    if (usemark) replicationSendAck();
+
     /* Restart the AOF subsystem now that we finished the sync. This
      * will trigger an AOF rewrite, and when done will start appending
      * to the new file. */
@@ -2130,6 +2140,15 @@ int cancelReplicationHandshake(void) {
     } else {
         return 0;
     }
+
+    /* try to re-connect without waiting for replicationCron, this is needed
+     * for the "diskless loading short read" test. */
+    serverLog(LL_NOTICE,"Reconnecting to MASTER %s:%d",
+        server.masterhost, server.masterport);
+    if (connectWithMaster() == C_OK) {
+        serverLog(LL_NOTICE,"MASTER <-> REPLICA sync started");
+    }
+
     return 1;
 }
 
@@ -2197,6 +2216,14 @@ void replicationHandleMasterDisconnection(void) {
     /* We lost connection with our master, don't disconnect slaves yet,
      * maybe we'll be able to PSYNC with our master later. We'll disconnect
      * the slaves only if we'll have to do a full resync with our master. */
+
+    /* Try to re-connect immediately rather than wait for replicationCron
+     * waiting 1 second may risk backlog being recycled. */
+    serverLog(LL_NOTICE,"Reconnecting to MASTER %s:%d",
+        server.masterhost, server.masterport);
+    if (connectWithMaster() == C_OK) {
+        serverLog(LL_NOTICE,"MASTER <-> REPLICA sync started");
+    }
 }
 
 void replicaofCommand(client *c) {

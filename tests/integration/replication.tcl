@@ -400,7 +400,12 @@ test {diskless loading short read} {
             $master config set repl-diskless-sync yes
             $master config set rdbcompression no
             $replica config set repl-diskless-load swapdb
+            $master config set hz 500
+            $replica config set hz 500
+            $master config set dynamic-hz no
+            $replica config set dynamic-hz no
             # Try to fill the master with all types of data types / encodings
+            set start [clock clicks -milliseconds]
             for {set k 0} {$k < 3} {incr k} {
                 for {set i 0} {$i < 10} {incr i} {
                     r set "$k int_$i" [expr {int(rand()*10000)}]
@@ -422,31 +427,40 @@ test {diskless loading short read} {
                 }
             }
 
+            if {$::verbose} {
+                set end [clock clicks -milliseconds]
+                set duration [expr $end - $start]
+                puts "filling took $duration ms (TODO: use pipeline)"
+                set start [clock clicks -milliseconds]
+            }
+
             # Start the replication process...
             $master config set repl-diskless-sync-delay 0
             $replica replicaof $master_host $master_port
 
             # kill the replication at various points
-            set attempts 3
-            if {$::accurate} { set attempts 10 }
+            set attempts 100
+            if {$::accurate} { set attempts 500 }
             for {set i 0} {$i < $attempts} {incr i} {
                 # wait for the replica to start reading the rdb
                 # using the log file since the replica only responds to INFO once in 2mb
-                wait_for_log_message -1 "*Loading DB in memory*" 5 2000 1
+                wait_for_log_messages -1 {"*Loading DB in memory*"} 5 2000 1
 
                 # add some additional random sleep so that we kill the master on a different place each time
-                after [expr {int(rand()*100)}]
+                after [expr {int(rand()*50)}]
 
                 # kill the replica connection on the master
                 set killed [$master client kill type replica]
 
-                if {[catch {
-                    set res [wait_for_log_message -1 "*Internal error in RDB*" 5 100 10]
+                set res [wait_for_log_messages -1 {"*Internal error in RDB*" "*Finished with success*" "*Successful partial resynchronization*"} 10 1000 1]
+                if {[string match "*Internal error in RDB*" $res]} {
                     if {$::verbose} {
                         puts $res
                     }
-                }]} {
-                    puts "failed triggering short read"
+                } else {
+                    if {$::verbose} {
+                        puts $res
+                    }
                     # force the replica to try another full sync
                     $master client kill type replica
                     $master set asdf asdf
@@ -454,11 +468,16 @@ test {diskless loading short read} {
                     $master config set repl-backlog-size [expr {16384 + $i}]
                 }
                 # wait for loading to stop (fail)
-                wait_for_condition 100 10 {
+                wait_for_condition 1000 1 {
                     [s -1 loading] eq 0
                 } else {
                     fail "Replica didn't disconnect"
                 }
+            }
+            if {$::verbose} {
+                set end [clock clicks -milliseconds]
+                set duration [expr $end - $start]
+                puts "test took $duration ms"
             }
             # enable fast shutdown
             $master config set rdb-key-save-delay 0

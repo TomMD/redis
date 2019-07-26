@@ -1744,6 +1744,40 @@ void updateCachedTime(void) {
     server.daylight_active = tm.tm_isdst;
 }
 
+void checkChildrenDone(void) {
+    int statloc;
+    pid_t pid;
+
+    if ((pid = wait3(&statloc,WNOHANG,NULL)) != 0) {
+        int exitcode = WEXITSTATUS(statloc);
+        int bysignal = 0;
+
+        if (WIFSIGNALED(statloc)) bysignal = WTERMSIG(statloc);
+
+        if (pid == -1) {
+            serverLog(LL_WARNING,"wait3() returned an error: %s. "
+                "rdb_child_pid = %d, aof_child_pid = %d",
+                strerror(errno),
+                (int) server.rdb_child_pid,
+                (int) server.aof_child_pid);
+        } else if (pid == server.rdb_child_pid) {
+            backgroundSaveDoneHandler(exitcode,bysignal);
+            if (!bysignal && exitcode == 0) receiveChildInfo();
+        } else if (pid == server.aof_child_pid) {
+            backgroundRewriteDoneHandler(exitcode,bysignal);
+            if (!bysignal && exitcode == 0) receiveChildInfo();
+        } else {
+            if (!ldbRemoveChild(pid)) {
+                serverLog(LL_WARNING,
+                    "Warning, detected child with unmatched pid: %ld",
+                    (long)pid);
+            }
+        }
+        updateDictResizePolicy();
+        closeChildInfoPipe();
+    }
+}
+
 /* This is our timer interrupt, called server.hz times per second.
  * Here is where we do a number of things that need to be done asynchronously.
  * For instance:
@@ -1896,37 +1930,7 @@ int serverCron(struct aeEventLoop *eventLoop, long long id, void *clientData) {
     if (server.rdb_child_pid != -1 || server.aof_child_pid != -1 ||
         ldbPendingChildren())
     {
-        int statloc;
-        pid_t pid;
-
-        if ((pid = wait3(&statloc,WNOHANG,NULL)) != 0) {
-            int exitcode = WEXITSTATUS(statloc);
-            int bysignal = 0;
-
-            if (WIFSIGNALED(statloc)) bysignal = WTERMSIG(statloc);
-
-            if (pid == -1) {
-                serverLog(LL_WARNING,"wait3() returned an error: %s. "
-                    "rdb_child_pid = %d, aof_child_pid = %d",
-                    strerror(errno),
-                    (int) server.rdb_child_pid,
-                    (int) server.aof_child_pid);
-            } else if (pid == server.rdb_child_pid) {
-                backgroundSaveDoneHandler(exitcode,bysignal);
-                if (!bysignal && exitcode == 0) receiveChildInfo();
-            } else if (pid == server.aof_child_pid) {
-                backgroundRewriteDoneHandler(exitcode,bysignal);
-                if (!bysignal && exitcode == 0) receiveChildInfo();
-            } else {
-                if (!ldbRemoveChild(pid)) {
-                    serverLog(LL_WARNING,
-                        "Warning, detected child with unmatched pid: %ld",
-                        (long)pid);
-                }
-            }
-            updateDictResizePolicy();
-            closeChildInfoPipe();
-        }
+        checkChildrenDone();
     } else {
         /* If there is not a background saving/rewrite in progress check if
          * we have to save/rewrite now. */
