@@ -890,7 +890,11 @@ void scanGenericCommand(client *c, robj *o, unsigned long cursor) {
     /* Handle the case of a hash table. */
     ht = NULL;
     if (o == NULL) {
-        ht = c->db->dict;
+        if(!strcmp(c->argv[0]->ptr,"scan")){
+            ht = c->db->dict;
+        }else{
+            ht = c->db->expires;
+        }
     } else if (o->type == OBJ_SET && o->encoding == OBJ_ENCODING_HT) {
         ht = o->ptr;
     } else if (o->type == OBJ_HASH && o->encoding == OBJ_ENCODING_HT) {
@@ -1018,6 +1022,13 @@ cleanup:
 
 /* The SCAN command completely relies on scanGenericCommand. */
 void scanCommand(client *c) {
+    unsigned long cursor;
+    if (parseScanCursorOrReply(c,c->argv[1],&cursor) == C_ERR) return;
+    scanGenericCommand(c,NULL,cursor);
+}
+
+/* The SCANEXPIRE command completely relies on scanGenericCommand. */
+void scanexpireCommand(client *c) {
     unsigned long cursor;
     if (parseScanCursorOrReply(c,c->argv[1],&cursor) == C_ERR) return;
     scanGenericCommand(c,NULL,cursor);

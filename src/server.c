@@ -693,6 +693,10 @@ struct redisCommand redisCommandTable[] = {
      "read-only random @keyspace",
      0,NULL,0,0,0,0,0,0},
 
+    {"scanexpire",scanCommand,-2,
+     "read-only random @keyspace",
+     0,NULL,0,0,0,0,0,0},
+
     {"dbsize",dbsizeCommand,1,
      "read-only fast @keyspace",
      0,NULL,0,0,0,0,0,0},
