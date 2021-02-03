@@ -1,3 +1,4 @@
+# coding: utf-8
 # gendoc.rb -- Converts the top-comments inside module.c to modules API
 #              reference documentation in markdown format.
 
@@ -24,6 +25,8 @@ def markdown(s)
             # Link URLs preceded by space or newline (not already linked)
             l = l.gsub(/((?:^| )https?:\/\/[A-Za-z0-9_\/\.\-]+[A-Za-z0-9\/])/,
                        '[\1](\1)')
+            # Replace double-dash with unicode ndash
+            l = l.gsub(/ -- /, ' – ')
         end
         # Link function names to their definition within the page
         l = l.gsub(/`(RedisModule_[A-z0-9]+)[()]*`/) {|x|
